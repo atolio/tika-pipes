@@ -7,13 +7,20 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Docker image version tag'
+        required: true
+        type: string
 
 env:
   PROJECT_NAME: tika-pipes
   MULTI_ARCH: true
-  AWS_REGION: us-east-1
+  AWS_REGION: us-west-2
   ECR_REPOSITORY: ${{ github.event.repository.name }}
-  DOCKER_ID: bfirestone
+  # DOCKER_ID: atolio
+  AWS_ACCOUNT_ID: 336003673347
 
 jobs:
   build:
@@ -26,6 +33,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug GitHub Context
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Event Name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -36,45 +51,39 @@ jobs:
       - name: Configure AWS credentials
         if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@v4
+        env:
+          ACTIONS_STEP_DEBUG: true
+          ACTIONS_RUNNER_DEBUG: true
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: false
+          role-duration-seconds: 900
+          output-credentials: true
 
       - name: Login to Amazon ECR
         if: github.event_name != 'pull_request'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=long
-
-      - name: Build with Maven and Package Docker Image
+      - name: Build with Maven and Push Docker Image
+        if: github.event_name != 'pull_request'
         env:
           MULTI_ARCH: ${{ env.MULTI_ARCH }}
-          DOCKER_ID: ${{ env.DOCKER_ID }}
+          # DOCKER_ID: ${{ env.DOCKER_ID }}
           PROJECT_NAME: ${{ env.PROJECT_NAME }}
-          RELEASE_IMAGE_TAG: ${{ steps.meta.outputs.version || 'latest' }}
-        run: mvn clean package
-
-      - name: Build and push Docker image
-        if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v5
-        with:
-          context: tika-pipes-grpc/docker-build
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max 
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
+        run: |
+          # Get short SHA for tag
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          # Set final tag, prioritizing manual input, then short SHA
+          RELEASE_IMAGE_TAG="${{ inputs.version }}"
+          if [ -z "$FINAL_TAG" ]; then
+            RELEASE_IMAGE_TAG="$SHORT_SHA"
+          fi          
+          
+          mvn clean package
+          # Tag and push the image built by Maven
+          # docker tag ${{ env.DOCKER_ID }}/${{ env.PROJECT_NAME }}:$RELEASE_IMAGE_TAG $REGISTRY/${{ env.ECR_REPOSITORY }}:$FINAL_TAG
+          # docker push $REGISTRY/${{ env.ECR_REPOSITORY }}:$FINAL_TAG 
