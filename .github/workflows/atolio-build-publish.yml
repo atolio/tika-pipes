@@ -1,0 +1,80 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  PROJECT_NAME: tika-pipes
+  MULTI_ARCH: true
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: ${{ github.event.repository.name }}
+  DOCKER_ID: bfirestone
+
+jobs:
+  build:
+    runs-on: blacksmith-4vcpu-ubuntu-2204
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'corretto'
+          cache: 'maven'
+
+      - name: Configure AWS credentials
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: github.event_name != 'pull_request'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+
+      - name: Build with Maven and Package Docker Image
+        env:
+          MULTI_ARCH: ${{ env.MULTI_ARCH }}
+          DOCKER_ID: ${{ env.DOCKER_ID }}
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          RELEASE_IMAGE_TAG: ${{ steps.meta.outputs.version || 'latest' }}
+        run: mvn clean package
+
+      - name: Build and push Docker image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: tika-pipes-grpc/docker-build
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max 
