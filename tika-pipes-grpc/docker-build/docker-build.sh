@@ -95,7 +95,17 @@ if [ ${#IMAGE_TAGS[@]} -eq 0 ]; then
     exit 0
 fi
 
+echo " ==================================================================================================="
+echo "MULTI_ARCH: ${MULTI_ARCH}"
+echo "DOCKER_ID: ${DOCKER_ID}"
+echo "PROJECT_NAME: ${PROJECT_NAME}"
+echo "RELEASE_IMAGE_TAG: ${RELEASE_IMAGE_TAG}"
+echo "REGISTRY: ${REGISTRY}"
+
 tag="${IMAGE_TAGS[*]}"
+echo "IMAGE_TAG: ${tag}"
+echo " ==================================================================================================="
+
 if [ "${MULTI_ARCH}" == "true" ]; then
   echo "Building multi arch image"
   docker buildx create --name tikapipesbuilder
