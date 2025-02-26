@@ -19,8 +19,7 @@ env:
   MULTI_ARCH: true
   AWS_REGION: us-west-2
   ECR_REPOSITORY: ${{ github.event.repository.name }}
-  # DOCKER_ID: atolio
-  AWS_ACCOUNT_ID: 336003673347
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
 jobs:
   build:
@@ -70,7 +69,6 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           MULTI_ARCH: ${{ env.MULTI_ARCH }}
-          # DOCKER_ID: ${{ env.DOCKER_ID }}
           PROJECT_NAME: ${{ env.PROJECT_NAME }}
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
@@ -79,11 +77,10 @@ jobs:
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
           # Set final tag, prioritizing manual input, then short SHA
           RELEASE_IMAGE_TAG="${{ inputs.version }}"
-          if [ -z "$FINAL_TAG" ]; then
+          if [ -z "$RELEASE_IMAGE_TAG" ]; then
             RELEASE_IMAGE_TAG="$SHORT_SHA"
           fi          
           
-          mvn clean package
-          # Tag and push the image built by Maven
-          # docker tag ${{ env.DOCKER_ID }}/${{ env.PROJECT_NAME }}:$RELEASE_IMAGE_TAG $REGISTRY/${{ env.ECR_REPOSITORY }}:$FINAL_TAG
-          # docker push $REGISTRY/${{ env.ECR_REPOSITORY }}:$FINAL_TAG 
+          export RELEASE_IMAGE_TAG="${RELEASE_IMAGE_TAG}"
+          
+          mvn clean package 
