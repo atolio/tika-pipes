@@ -43,6 +43,7 @@
     <module>tika-fetcher-microsoft-graph</module>
     <module>tika-fetcher-s3</module>
     <module>tika-fetcher-google-drive</module>
+    <module>tika-fetcher-atlassian-jwt</module>
   </modules>
 
   <dependencyManagement>

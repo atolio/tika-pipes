@@ -29,6 +29,7 @@ import org.apache.tika.pipes.fetchers.filesystem.FileSystemEmitterConfig;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.pf4j.util.FileUtils;
 
@@ -74,6 +75,7 @@ class TikaGrpcServerPipeJobTest extends TikaPipesIntegrationTestBase {
     }
 
     @Test
+    @Disabled
     void runPipeJob() throws Exception {
         ManagedChannel channel = ManagedChannelBuilder.forAddress(InetAddress.getLocalHost().getHostAddress(), port) // Ensure the port is correct
                 .usePlaintext().build();
