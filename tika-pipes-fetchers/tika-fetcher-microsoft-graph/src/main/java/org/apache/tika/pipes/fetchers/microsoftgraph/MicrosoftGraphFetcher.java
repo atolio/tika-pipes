@@ -18,6 +18,7 @@ package org.apache.tika.pipes.fetchers.microsoftgraph;
 
 import com.azure.identity.ClientCertificateCredentialBuilder;
 import com.azure.identity.ClientSecretCredentialBuilder;
+import com.microsoft.graph.models.odataerrors.ODataError;
 import com.microsoft.graph.serviceclient.GraphServiceClient;
 import org.apache.commons.io.FileUtils;
 import org.apache.tika.io.TikaInputStream;
@@ -34,8 +35,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Fetches files from Microsoft Graph API.
@@ -44,10 +47,19 @@ import java.util.Map;
 @Extension
 public class MicrosoftGraphFetcher implements Fetcher {
     private static final Logger LOGGER = LoggerFactory.getLogger(MicrosoftGraphFetcher.class);
+    private static final Set<String> NO_RETRY_ERROR_CODES = new HashSet<>();
+
+    static {
+        NO_RETRY_ERROR_CODES.add("itemNotFound");
+        NO_RETRY_ERROR_CODES.add("InvalidRequest");
+        NO_RETRY_ERROR_CODES.add("Forbidden");
+        NO_RETRY_ERROR_CODES.add("Unauthorized");
+    }
+
     private GraphServiceClient graphClient;
 
     @Override
-    public InputStream fetch(FetcherConfig fetcherConfig, String fetchKey, Map<String, Object> fetchMetadata, Map<String, Object> responseMetadata) {
+    public InputStream fetch(FetcherConfig fetcherConfig, String fetchKey, Map<String, Object> fetchMetadata, Map<String, Object> responseMetadata) throws IOException {
         MicrosoftGraphFetcherConfig config = (MicrosoftGraphFetcherConfig) fetcherConfig;
         if (config.getScopes().isEmpty()) {
             config.getScopes().add("https://graph.microsoft.com/.default");
@@ -87,7 +99,7 @@ public class MicrosoftGraphFetcher implements Fetcher {
                         .get();
 
                 if (is == null) {
-                    throw new IOException("Empty input stream when we tried to parse " + fetchKey);
+                    throw new RuntimeException("Empty input stream when we tried to parse " + fetchKey);
                 }
                 if (config.isSpoolToTemp()) {
                     File tempFile = Files
@@ -99,6 +111,17 @@ public class MicrosoftGraphFetcher implements Fetcher {
                 }
                 return TikaInputStream.get(is);
             } catch (Exception e) {
+                if (e.getCause() instanceof ODataError) {
+                    ODataError oDataError = (ODataError) e.getCause();
+                    String errorCode = oDataError.getError().getCode();
+                    if (errorCode != null && NO_RETRY_ERROR_CODES.contains(errorCode)) {
+                        LOGGER.warn("Hit a no retry error code '{}' for key {}. Not retrying.", errorCode, fetchKey);
+                        if ("itemNotFound".equals(errorCode)) {
+                            throw new IOException("Microsoft Graph item not found: " + fetchKey);
+                        }
+                        throw new IOException("Microsoft Graph error: " + errorCode, e);
+                    }
+                }
                 LOGGER.warn("Exception fetching on retry=" + tries, e);
                 ex = e;
             } finally {
@@ -107,7 +130,7 @@ public class MicrosoftGraphFetcher implements Fetcher {
             }
             handlePostFetch(throttleSeconds, tries);
         } while (++tries < throttleSeconds.size());
-        throw new RuntimeException("Could not parse " + fetchKey, ex);
+        throw new RuntimeException("Could not fetch " + fetchKey, ex);
     }
 
     private static void handlePostFetch(List<Long> throttleSeconds, int tries) {

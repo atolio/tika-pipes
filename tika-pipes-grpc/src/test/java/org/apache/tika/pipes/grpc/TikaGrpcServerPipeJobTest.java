@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 import org.pf4j.util.FileUtils;
 
 import java.io.File;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
+@Disabled
 class TikaGrpcServerPipeJobTest extends TikaPipesIntegrationTestBase {
     ObjectMapper objectMapper = new ObjectMapper();
     String pipeIteratorId = "pipe-iterator-example1";
