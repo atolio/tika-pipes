@@ -111,8 +111,22 @@ public class MicrosoftGraphFetcher implements Fetcher {
                 }
                 return TikaInputStream.get(is);
             } catch (Exception e) {
-                if (e.getCause() instanceof ODataError) {
-                    LOGGER.Information("Caught ODataError for key {}: {}", fetchKey, e.getMessage());
+                LOGGER.warn("Exception fetching on retry=" + tries + ", exception type: " + e.getClass().getSimpleName(), e);
+                
+                if (e instanceof ODataError) {
+                    LOGGER.info("Caught ODataError directly for key {}: {}", fetchKey, e.getMessage());
+                    ODataError oDataError = (ODataError) e;
+                    String errorCode = oDataError.getError().getCode();
+                    LOGGER.warn("ODataError code: {}, message: {}", errorCode, oDataError.getError().getMessage());
+                    if (errorCode != null && NO_RETRY_ERROR_CODES.contains(errorCode)) {
+                        LOGGER.warn("Hit a no retry error code '{}' for key {}. Not retrying.", errorCode, fetchKey);
+                        if ("itemNotFound".equals(errorCode)) {
+                            throw new IOException("Microsoft Graph item not found: " + fetchKey);
+                        }
+                        throw new IOException("Microsoft Graph error: " + errorCode, e);
+                    }
+                } else if (e.getCause() instanceof ODataError) {
+                    LOGGER.info("Caught ODataError as cause for key {}: {}", fetchKey, e.getMessage());
                     ODataError oDataError = (ODataError) e.getCause();
                     String errorCode = oDataError.getError().getCode();
                     LOGGER.warn("ODataError code: {}, message: {}", errorCode, oDataError.getError().getMessage());
@@ -124,7 +138,6 @@ public class MicrosoftGraphFetcher implements Fetcher {
                         throw new IOException("Microsoft Graph error: " + errorCode, e);
                     }
                 }
-                LOGGER.warn("Exception fetching on retry=" + tries, e);
                 ex = e;
             } finally {
                 long elapsed = System.currentTimeMillis() - start;
