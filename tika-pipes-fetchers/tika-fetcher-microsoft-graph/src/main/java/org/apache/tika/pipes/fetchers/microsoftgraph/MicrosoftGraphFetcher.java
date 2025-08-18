@@ -112,8 +112,10 @@ public class MicrosoftGraphFetcher implements Fetcher {
                 return TikaInputStream.get(is);
             } catch (Exception e) {
                 if (e.getCause() instanceof ODataError) {
+                    LOGGER.Information("Caught ODataError for key {}: {}", fetchKey, e.getMessage());
                     ODataError oDataError = (ODataError) e.getCause();
                     String errorCode = oDataError.getError().getCode();
+                    LOGGER.warn("ODataError code: {}, message: {}", errorCode, oDataError.getError().getMessage());
                     if (errorCode != null && NO_RETRY_ERROR_CODES.contains(errorCode)) {
                         LOGGER.warn("Hit a no retry error code '{}' for key {}. Not retrying.", errorCode, fetchKey);
                         if ("itemNotFound".equals(errorCode)) {
