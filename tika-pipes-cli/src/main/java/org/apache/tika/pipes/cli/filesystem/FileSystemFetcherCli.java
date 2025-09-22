@@ -13,6 +13,7 @@ import org.apache.tika.SaveFetcherReply;
 import org.apache.tika.SaveFetcherRequest;
 import org.apache.tika.TikaGrpc;
 import org.apache.tika.pipes.fetchers.filesystem.FileSystemFetcherConfig;
+import org.apache.tika.utils.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,6 +43,8 @@ public class FileSystemFetcherCli {
     private Integer port = TIKA_SERVER_GRPC_DEFAULT_PORT;
     @Parameter(names = {"--fetcher-id"}, description = "What fetcher ID should we use? By default will use filesystem-fetcher")
     private String fetcherId = "filesystem-fetcher";
+    @Parameter(names = {"--handler-type"}, description = "Type of the handler to use. Some options are 'TEXT' and 'HTML'. Default is 'TEXT'")
+    private String handlerType = "";
     @Parameter(names = {"-h", "-H", "--help"}, description = "Display help menu")
     private boolean help;
 
@@ -116,14 +119,19 @@ public class FileSystemFetcherCli {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                 try {
-                    requestStreamObserver.onNext(FetchAndParseRequest
+                    FetchAndParseRequest.Builder builder = FetchAndParseRequest
                             .newBuilder()
                             .setFetcherId(fetcherId)
                             .setFetchKey(file
                                     .toAbsolutePath()
                                     .toString())
-                            .setFetchMetadataJson(OBJECT_MAPPER.writeValueAsString(Map.of()))
-                            .build());
+                            .setFetchMetadataJson(OBJECT_MAPPER.writeValueAsString(Map.of()));
+                    if (!StringUtils.isBlank(handlerType)) {
+                        builder.setParseContextJson(OBJECT_MAPPER.writeValueAsString(Map.of(
+                                "handler_type", handlerType
+                        )));
+                    }
+                    requestStreamObserver.onNext(builder.build());
                 } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
