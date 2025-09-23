@@ -74,6 +74,7 @@ import org.apache.tika.pipes.repo.EmitterRepository;
 import org.apache.tika.pipes.repo.FetcherRepository;
 import org.apache.tika.pipes.repo.JobStatusRepository;
 import org.apache.tika.pipes.repo.PipeIteratorRepository;
+import org.apache.tika.sax.BasicContentHandlerFactory;
 import org.jetbrains.annotations.NotNull;
 import org.pf4j.PluginManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,6 +100,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @GrpcService
 public class TikaGrpcService extends TikaGrpc.TikaImplBase {
     private final ExecutorService executorService = Executors.newCachedThreadPool(new TikaRunnerThreadFactory());
+    private static final String PARSE_CONTEXT_KEY_HANDLER_TYPE = "handler_type";
     public static final TypeReference<Map<String, Object>> MAP_STRING_OBJ_TYPE_REF = new TypeReference<>() {
     };
     @Autowired
@@ -302,6 +304,7 @@ public class TikaGrpcService extends TikaGrpc.TikaImplBase {
     }
 
     private void fetchAndParseImpl(FetchAndParseRequest request, StreamObserver<FetchAndParseReply> responseObserver) throws IOException {
+        log.debug("fetchAndParse request: {}", request);
         DefaultFetcherConfig fetcherConfig = fetcherRepository.findByFetcherId(request.getFetcherId());
         if (fetcherConfig == null) {
             throw new IOException("Could not find fetcher with ID " + request.getFetcherId());
@@ -320,12 +323,7 @@ public class TikaGrpcService extends TikaGrpc.TikaImplBase {
 
         Map<String, Object> addedMetadata = objectMapper.readValue(StringUtils.defaultIfBlank(request.getAddedMetadataJson(), "{}"), MAP_STRING_OBJ_TYPE_REF);
 
-        ParseContext parseContext;
-        if (StringUtils.isNotBlank(request.getParseContextJson())) {
-            parseContext = objectMapper.readValue(request.getParseContextJson(), ParseContext.class);
-        } else {
-            parseContext = new ParseContext();
-        }
+        ParseContext parseContext = createParseContext(request);
         try {
             log.info("Beginning parse for fetchKey={} with fetcherId={}", request.getFetchKey(), request.getFetcherId());
             for (Map<String, Object> metadata : parseService.parseDocument(inputStream, parseContext)) {
@@ -342,6 +340,25 @@ public class TikaGrpcService extends TikaGrpc.TikaImplBase {
             builder.setErrorMessage(ExceptionUtils.getRootCauseMessage(e));
         }
         responseObserver.onNext(builder.build());
+    }
+
+    private ParseContext createParseContext(FetchAndParseRequest request) {
+        ParseContext ctx = new ParseContext();
+        try {
+            Map<String, Object> attrs = objectMapper.readValue(
+                    StringUtils.defaultIfBlank(request.getParseContextJson(), "{}"),
+                    MAP_STRING_OBJ_TYPE_REF);
+
+            String hVal = (String) attrs.getOrDefault(
+                    PARSE_CONTEXT_KEY_HANDLER_TYPE,
+                    "TEXT");
+
+            ctx.set(BasicContentHandlerFactory.HANDLER_TYPE.class,
+                    BasicContentHandlerFactory.parseHandlerType(hVal, BasicContentHandlerFactory.HANDLER_TYPE.TEXT));
+        } catch (Exception e) {
+            log.warn("Failed to process 'parse context' in request. Will use empty context as default.", e);
+        }
+        return ctx;
     }
 
     private void putMetadataFields(Map<String, Object> metadata, Metadata.Builder metadataBuilder) throws JsonProcessingException {
