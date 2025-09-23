@@ -43,7 +43,7 @@ public class FileSystemFetcherCli {
     private Integer port = TIKA_SERVER_GRPC_DEFAULT_PORT;
     @Parameter(names = {"--fetcher-id"}, description = "What fetcher ID should we use? By default will use filesystem-fetcher")
     private String fetcherId = "filesystem-fetcher";
-    @Parameter(names = {"--handler-type"}, description = "Type of the handler to use. Some options are 'TEXT' and 'HTML'. Default is 'TEXT'")
+    @Parameter(names = {"--handler-type"}, description = "Type of the handler to use. Options are 'text', 'html', 'xml', 'body', and 'ignore'. Default is 'text'")
     private String handlerType = "";
     @Parameter(names = {"-h", "-H", "--help"}, description = "Display help menu")
     private boolean help;

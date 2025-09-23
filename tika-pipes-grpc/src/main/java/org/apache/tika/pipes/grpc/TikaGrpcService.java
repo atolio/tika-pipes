@@ -356,7 +356,7 @@ public class TikaGrpcService extends TikaGrpc.TikaImplBase {
             ctx.set(BasicContentHandlerFactory.HANDLER_TYPE.class,
                     BasicContentHandlerFactory.parseHandlerType(hVal, BasicContentHandlerFactory.HANDLER_TYPE.TEXT));
         } catch (Exception e) {
-            log.warn("Failed to process 'parse context' in request. Will use the default.", e);
+            log.warn("Failed to process 'parse context' in request. Will use empty context as default.", e);
         }
         return ctx;
     }
