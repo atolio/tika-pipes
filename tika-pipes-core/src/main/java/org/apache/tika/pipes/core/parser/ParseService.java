@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Component
@@ -84,10 +85,15 @@ public class ParseService {
     }
 
     private RecursiveParserWrapperHandler getRecursiveParserWrapperHandler(ParseContext context, TikaConfig tikaConfig) {
-        HandlerConfig handlerConfig = new HandlerConfig(BasicContentHandlerFactory.HANDLER_TYPE.TEXT, HandlerConfig.PARSE_MODE.RMETA, writeLimit, maxEmbeddedResources, throwOnWriteLimitReached);
+        HandlerConfig handlerConfig = new HandlerConfig(getHandlerType(context), HandlerConfig.PARSE_MODE.RMETA, writeLimit, maxEmbeddedResources, throwOnWriteLimitReached);
         BasicContentHandlerFactory.HANDLER_TYPE type = handlerConfig.getType();
         BasicContentHandlerFactory contentHandlerFactory = new BasicContentHandlerFactory(type, handlerConfig.getWriteLimit(), handlerConfig.isThrowOnWriteLimitReached(), context);
         return new RecursiveParserWrapperHandler(contentHandlerFactory, handlerConfig.getMaxEmbeddedResources(), tikaConfig.getMetadataFilter());
+    }
+
+    private BasicContentHandlerFactory.HANDLER_TYPE getHandlerType(ParseContext parseContext) {
+        BasicContentHandlerFactory.HANDLER_TYPE hType = parseContext.get(BasicContentHandlerFactory.HANDLER_TYPE.class);
+        return Objects.requireNonNullElse(hType, BasicContentHandlerFactory.HANDLER_TYPE.TEXT);
     }
 
     /**
