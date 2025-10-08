@@ -57,5 +57,6 @@ jobs:
         context: ./target/tika-docker
         file: ./target/tika-docker/Dockerfile
         push: true
+        platforms: linux/amd64,linux/arm64
         tags: ${{ env.AWS_ACCOUNT }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/tika:${{ env.IMAGE_TAG }}
 
