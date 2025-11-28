@@ -128,6 +128,7 @@ public class S3Fetcher implements Fetcher {
         Long startRange = (Long) fetchMetadata.get("startRange");
         Long endRange = (Long) fetchMetadata.get("endRange");
         TemporaryResources tmp = null;
+        ResponseInputStream<GetObjectResponse> s3Object = null;
         String bucket = s3FetcherConfig.getBucket();
         try {
             long start = System.currentTimeMillis();
@@ -139,7 +140,7 @@ public class S3Fetcher implements Fetcher {
             }
             GetObjectRequest objectRequest = builder
                     .build();
-            ResponseInputStream<GetObjectResponse> s3Object = s3Client.getObject(objectRequest);
+            s3Object = s3Client.getObject(objectRequest);
             long length = s3Object.response()
                     .contentLength();
             responseMetadata.put(Metadata.CONTENT_LENGTH, Long.toString(length));
@@ -171,6 +172,10 @@ public class S3Fetcher implements Fetcher {
                 return tis;
             }
         } catch (Throwable e) {
+            if (s3Object != null) {
+                log.info("Aborting S3 object stream due to exception");
+                s3Object.abort();
+            }
             if (tmp != null) {
                 tmp.close();
             }
