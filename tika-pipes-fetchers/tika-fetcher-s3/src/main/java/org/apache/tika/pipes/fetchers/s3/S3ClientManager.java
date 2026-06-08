@@ -61,6 +61,10 @@ public class S3ClientManager {
             s3ClientBuilder.endpointOverride(URI.create(s3FetcherConfig.getEndpointOverride()));
         }
 
+        if (s3FetcherConfig.isPathStyleAccessEnabled()) {
+            s3ClientBuilder.forcePathStyle(true);
+        }
+
         return s3ClientBuilder.build();
     }
 
