@@ -14,7 +14,7 @@ echo "${TIKA_PIPES_GRPC_NUM_THREADS}"
 exec java \
   -Dgrpc.server.port=9090 \
   "-Dgrpc.server.max-inbound-message-size=${TIKA_PIPES_MAX_INBOUND_MESSAGE_SIZE}" \
-  "-Dgrpc.server.max-outbound-message-size=${TIKA_PIPES_MAX_INBOUND_MESSAGE_SIZE}" \
+  "-Dgrpc.server.max-outbound-message-size=${TIKA_PIPES_MAX_OUTBOUND_MESSAGE_SIZE}" \
   "-Dgrpc.server.numThreads=${TIKA_PIPES_GRPC_NUM_THREADS}" \
   "-Dlog4j.configurationFile=/tika/config/log4j2.xml" \
   --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED \

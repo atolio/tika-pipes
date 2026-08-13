@@ -5,8 +5,8 @@ grpc:
   server:
     numThreads: 4
     port: 9090
-    max-inbound-message-size: 1600777216 # 1600MB
-    max-outbound-message-size: 1600777216 # 1600MB
+    max-inbound-message-size: 104857600 # 100MB
+    max-outbound-message-size: 104857600 # 100MB
     health:
       enabled: false
 ignite:
